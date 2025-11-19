@@ -21,37 +21,44 @@ Antes de la segmentación, los datos deben ser limpiados para reducir la complej
 
 #### A. Filtrado Voxel Grid (Downsampling)
 Para reducir la cantidad de puntos $N$ sin perder la estructura geométrica, se aplica un filtro de rejilla de vóxeles.
-*   **Concepto:** El espacio 3D se divide en cubos (vóxeles) de tamaño $V_{size} \times V_{size} \times V_{size}$.
-*   **Operación:** Todos los puntos dentro de un vóxel se reemplazan por su centroide $\bar{p}$.
-    $$ \bar{p} = \frac{1}{m} \sum_{i=1}^{m} p_i $$
-    Donde $m$ es el número de puntos en el vóxel.
-*   **Impacto en Código:** Controlado por `voxel_leaf_size_` (0.02m). Esto reduce drásticamente $N$, permitiendo que el algoritmo de clustering posterior corra en tiempo real.
+*   **Concepto:** El espacio 3D se divide en cubos (vóxeles) de tamaño **V_size × V_size × V_size**.
+*   **Operación:** Todos los puntos dentro de un vóxel se reemplazan por su centroide **p̄**.
+    
+    > **p̄ = (1/m) · Σ pᵢ**
+    
+    Donde **m** es el número de puntos en el vóxel.
+*   **Impacto en Código:** Controlado por `voxel_leaf_size_` (0.02m). Esto reduce drásticamente **N**, permitiendo que el algoritmo de clustering posterior corra en tiempo real.
 
 #### B. Statistical Outlier Removal (Eliminación de Ruido)
 El sensor LiDAR a menudo genera "puntos fantasma" debido a reflejos especulares o bordes de objetos.
-*   **Algoritmo:** Para cada punto $p_i$, se calcula la distancia media $\bar{d}_i$ a sus $k$ vecinos más cercanos.
-*   **Criterio de Eliminación:** Un punto se descarta si su distancia media es mayor que un umbral definido por la media global $\mu_k$ y la desviación estándar $\sigma_k$ de todas las distancias:
-    $$ \text{Descartar si: } \bar{d}_i > \mu_k + \alpha \cdot \sigma_k $$
+*   **Algoritmo:** Para cada punto **pᵢ**, se calcula la distancia media **d̄ᵢ** a sus **k** vecinos más cercanos.
+*   **Criterio de Eliminación:** Un punto se descarta si su distancia media es mayor que un umbral definido por la media global **μₖ** y la desviación estándar **σₖ** de todas las distancias:
+    
+    > **Descartar si: d̄ᵢ > μₖ + α · σₖ**
+
 *   **Parámetros en Código:**
-    *   $k$ = `outlier_mean_k` (10 vecinos).
-    *   $\alpha$ = `outlier_stddev` (0.5 desviaciones estándar).
+    *   **k** = `outlier_mean_k` (10 vecinos).
+    *   **α** = `outlier_stddev` (0.5 desviaciones estándar).
 
 ### 2.2 Núcleo de ML: Euclidean Cluster Extraction (DBSCAN)
 El algoritmo implementado es una variante eficiente de **DBSCAN (Density-Based Spatial Clustering of Applications with Noise)**. A diferencia de K-Means, este algoritmo agrupa puntos basándose en la conectividad espacial directa.
 
 #### Formulación Matemática
-Sea $d(p_i, p_j)$ la distancia euclidiana entre dos puntos:
-$$ d(p_i, p_j) = \sqrt{(x_i-x_j)^2 + (y_i-y_j)^2 + (z_i-z_j)^2} $$
+Sea **d(pᵢ, pⱼ)** la distancia euclidiana entre dos puntos:
 
-Un cluster $C$ se define como un conjunto de puntos tal que para todo $p \in C$, existe otro punto $q \in C$ que cumple:
-$$ d(p, q) < \epsilon $$
-Donde $\epsilon$ es la tolerancia de distancia (radio de búsqueda).
+> **d(pᵢ, pⱼ) = √((xᵢ-xⱼ)² + (yᵢ-yⱼ)² + (zᵢ-zⱼ)²)**
+
+Un cluster **C** se define como un conjunto de puntos tal que para todo **p ∈ C**, existe otro punto **q ∈ C** que cumple:
+
+> **d(p, q) < ε**
+
+Donde **ε** es la tolerancia de distancia (radio de búsqueda).
 
 #### Algoritmo Implementado (PCL)
 1.  Se selecciona un punto semilla $p$ no procesado.
-2.  Se buscan todos los vecinos $N_\epsilon(p)$ tal que $d(p, n) < \epsilon$.
-3.  Si el número de vecinos $|N_\epsilon(p)| \ge MinPts$, se crea un nuevo cluster.
-4.  Se repite el proceso recursivamente para cada vecino, expandiendo el cluster hasta que no se encuentren más puntos conectados por la distancia $\epsilon$.
+2.  Se buscan todos los vecinos **N_ε(p)** tal que **d(p, n) < ε**.
+3.  Si el número de vecinos **|N_ε(p)| ≥ MinPts**, se crea un nuevo cluster.
+4.  Se repite el proceso recursivamente para cada vecino, expandiendo el cluster hasta que no se encuentren más puntos conectados por la distancia **ε**.
 
 #### Optimización con Kd-Tree
 La búsqueda ingenua de vecinos tiene una complejidad de $O(N^2)$. Para hacer esto viable en el robot, se utiliza una estructura de datos **Kd-Tree (k-dimensional tree)**.
@@ -66,8 +73,8 @@ La siguiente tabla relaciona los conceptos teóricos explicados con las variable
 
 | Concepto Teórico | Variable en Código | Valor Configurado | Explicación |
 | :--- | :--- | :--- | :--- |
-| **Radio de Búsqueda ($\epsilon$)** | `cluster_tolerance_` | `0.15` (metros) | Distancia máxima entre puntos para considerarlos parte del mismo objeto. Si dos puntos están a más de 15cm, se consideran objetos separados. |
-| **Densidad Mínima ($MinPts$)** | `min_cluster_size_` | `3` (puntos) | Mínimo de puntos para formar un cluster válido. Ayuda a filtrar ruido residual que no fue eliminado por el filtro estadístico. |
+| **Radio de Búsqueda (ε)** | `cluster_tolerance_` | `0.15` (metros) | Distancia máxima entre puntos para considerarlos parte del mismo objeto. Si dos puntos están a más de 15cm, se consideran objetos separados. |
+| **Densidad Mínima (MinPts)** | `min_cluster_size_` | `3` (puntos) | Mínimo de puntos para formar un cluster válido. Ayuda a filtrar ruido residual que no fue eliminado por el filtro estadístico. |
 | **Tamaño Máximo** | `max_cluster_size_` | `10000` (puntos) | Evita que el algoritmo agrupe todo el entorno (e.g., paredes largas) como un único objeto inmanejable. |
 | **Región de Interés (ROI)** | `range_min_`, `range_max_` | `0.1`m - `16.0`m | Filtra puntos demasiado cercanos (ruido del propio chasis) o demasiado lejanos (fuera de relevancia para navegación local). |
 
