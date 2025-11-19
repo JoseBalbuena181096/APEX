@@ -96,32 +96,32 @@ Es crucial justificar por qué se eligió un método basado en densidad sobre el
 ```mermaid
 graph TD
     subgraph "Hardware & Drivers"
-        LIDAR[Slamtec C1] -->|Scan Raw| ROS2[ROS2 Driver]
+        LIDAR["Slamtec C1"] -->|Scan Raw| ROS2["ROS2 Driver"]
     end
     
     subgraph "Nodo: Object Detection PCL"
-        ROS2 -->|/scan| SUB[Suscripción LaserScan]
-        SUB --> CONV[Conversión Polar -> Cartesiana]
+        ROS2 -->|/scan| SUB["Suscripción LaserScan"]
+        SUB --> CONV["Conversión Polar a Cartesiana"]
         
         subgraph "Preprocesamiento"
-            CONV --> ROI[Filtro de Rango y Ángulo]
-            ROI --> VOXEL[Voxel Grid Filter (Downsampling)]
-            VOXEL --> SOR[Statistical Outlier Removal]
+            CONV --> ROI["Filtro de Rango y Ángulo"]
+            ROI --> VOXEL["Voxel Grid Filter (Downsampling)"]
+            VOXEL --> SOR["Statistical Outlier Removal"]
         end
         
         subgraph "Core ML"
-            SOR --> KDTREE[Construcción Kd-Tree]
-            KDTREE --> EUCL[Euclidean Cluster Extraction]
+            SOR --> KDTREE["Construcción Kd-Tree"]
+            KDTREE --> EUCL["Euclidean Cluster Extraction"]
         end
         
         subgraph "Post-Procesamiento"
-            EUCL --> FEAT[Cálculo de Centroides y BBox]
-            FEAT --> VIS[Visualización OpenCV]
-            FEAT --> PUB[Publicación PointCloud2]
+            EUCL --> FEAT["Cálculo de Centroides y BBox"]
+            FEAT --> VIS["Visualización OpenCV"]
+            FEAT --> PUB["Publicación PointCloud2"]
         end
     end
     
-    PUB -->|/detected_objects_cloud| NAV[Stack de Navegación]
+    PUB -->|/detected_objects_cloud| NAV["Stack de Navegación"]
 ```
 
 ## 6. Instrucciones de Uso
