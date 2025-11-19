@@ -131,6 +131,45 @@ graph TD
     PUB -->|/detected_objects_cloud| NAV["Stack de Navegación"]
 ```
 
+### 5.1 Detalle del Algoritmo DBSCAN (Euclidean Clustering)
+
+El siguiente diagrama profundiza en la lógica interna del bloque "Core ML", ilustrando cómo el algoritmo procesa cada punto para formar clusters.
+
+```mermaid
+graph TD
+    Start([Inicio: Lista de Puntos P]) --> SelectPoint{¿Quedan puntos\nsin visitar?}
+    SelectPoint -->|No| End([Fin del Clustering])
+    SelectPoint -->|Sí| Pick[Seleccionar punto p no visitado]
+    Pick --> Mark[Marcar p como visitado]
+    Mark --> Neighbors[Buscar vecinos N en radio ε\nusando Kd-Tree]
+    
+    Neighbors --> DensityCheck{¿|N| ≥ MinPts?}
+    DensityCheck -->|No| Noise[Marcar p como RUIDO]
+    Noise --> SelectPoint
+    
+    DensityCheck -->|Sí| NewCluster[Crear Nuevo Cluster C]
+    NewCluster --> AddP[Agregar p a C]
+    AddP --> Expand[Expandir Cluster C con vecinos N]
+    
+    Expand --> ProcessNeighbor{¿Quedan vecinos\nen N por procesar?}
+    ProcessNeighbor -->|No| SaveCluster[Guardar Cluster C]
+    SaveCluster --> SelectPoint
+    
+    ProcessNeighbor -->|Sí| PickN[Tomar vecino q de N]
+    PickN --> VisitedN{¿q ya visitado?}
+    VisitedN -->|Sí| InCluster{¿q en algún cluster?}
+    InCluster -->|No| AddQ[Agregar q a C]
+    InCluster -->|Sí| ProcessNeighbor
+    
+    VisitedN -->|No| MarkQ[Marcar q visitado]
+    MarkQ --> SearchQ[Buscar vecinos de q (N')]
+    SearchQ --> DensityQ{¿|N'| ≥ MinPts?}
+    DensityQ -->|Sí| Append[Agregar N' a N]
+    DensityQ -->|No| AddQ
+    Append --> AddQ
+    AddQ --> ProcessNeighbor
+```
+
 ## 6. Instrucciones de Uso
 
 1.  **Iniciar Hardware:**
