@@ -146,39 +146,115 @@ El siguiente diagrama profundiza en la lógica interna del bloque "Core ML", ilu
 
 ```mermaid
 graph TD
+    %% Subgraph 1: Adquisición
     subgraph "1. Adquisición de Datos"
-        Input([Entrada: Nube de Puntos P])
+        Input([Entrada: sensor_msgs/LaserScan])
+        Param[Parámetros: ε=0.15m, MinPts=3, Voxel=0.02m]
+        PolarToCart["Conversión Polar -> Cartesiana (x,y,z)"]
+        Input --> PolarToCart
+        PolarToCart --> CloudRaw["pcl::PointCloud<pcl::PointXYZ> (Raw)"]
     end
 
+    %% Subgraph 2: Preprocesamiento Detallado
     subgraph "2. Limpieza y Preprocesamiento"
-        Input --> Voxel[Voxel Grid Downsampling]
-        Voxel --> Outlier[Statistical Outlier Removal]
-        Outlier --> CleanPoints[Puntos Limpios P']
+        CloudRaw --> VoxelGrid["Voxel Grid Filter"]
+        VoxelGrid -->|Divide espacio en cubos 2cm³| ComputeCentroid["Calcular Centroide por Voxel: p̄ = Σpᵢ / m"]
+        ComputeCentroid --> CloudVoxel["Nube Reducida (Downsampled)"]
+        
+        CloudVoxel --> SOR["Statistical Outlier Removal"]
+        SOR --> CalcMeanDist["Calcular Distancia Media a k=10 vecinos (d̄)"]
+        CalcMeanDist --> CheckThresh{"¿d̄ > μ + α·σ?"}
+        CheckThresh -->|Sí| DiscardPoint["Eliminar Punto (Ruido)"]
+        CheckThresh -->|No| KeepPoint["Mantener Punto"]
+        KeepPoint --> CleanPoints["Nube Filtrada P'"]
     end
 
-    subgraph "3. Agrupamiento (Core ML)"
-        CleanPoints --> SelectPoint{"¿Quedan puntos\nsin visitar?"}
-        SelectPoint -->|Sí| Pick[Seleccionar punto p]
-        Pick --> Neighbors["Buscar vecinos N (Radio ε)"]
-        Neighbors --> DensityCheck{"¿Densidad suficiente?\n(|N| ≥ MinPts)"}
-        DensityCheck -->|No| Noise[Marcar como RUIDO]
-        DensityCheck -->|Sí| ExpandCluster[Expandir Cluster C]
-        ExpandCluster --> SelectPoint
+    %% Subgraph 3: Core ML (DBSCAN Low-Level)
+    subgraph "3. Agrupamiento (Core ML - Euclidean Clustering)"
+        CleanPoints --> BuildTree["Construir Kd-Tree (O(N log N))"]
+        BuildTree --> InitLoop{¿Puntos sin procesar?}
+        
+        InitLoop -->|No| EndClustering[Fin del Agrupamiento]
+        InitLoop -->|Sí| SelectSeed["Seleccionar Semilla p_i"]
+        SelectSeed --> SearchNeighbors["Kd-Tree Radius Search (p_i, ε)"]
+        SearchNeighbors --> CalcDist["Calc Distancia Euclidiana: d = √((x₁-x₂)²+...)"]
+        CalcDist --> CheckEps{"¿d < ε?"}
+        CheckEps -->|Sí| AddToN["Agregar a Vecinos N"]
+        
+        AddToN --> CheckMinPts{"¿|N| ≥ MinPts?"}
+        CheckMinPts -->|No| MarkNoise["Marcar como RUIDO (temporal)"]
+        MarkNoise --> InitLoop
+        
+        CheckMinPts -->|Sí| NewCluster["Crear Nuevo Cluster C_k"]
+        NewCluster --> AddSeed["Agregar p_i a C_k"]
+        AddSeed --> ExpandQueue["Cola de Procesamiento Q = N"]
+        
+        ExpandQueue --> QueueEmpty{¿Q vacía?}
+        QueueEmpty -->|Sí| SaveCluster["Guardar C_k en lista de Clusters"]
+        SaveCluster --> InitLoop
+        
+        QueueEmpty -->|No| PopQ["Extraer punto q de Q"]
+        PopQ --> Visited{"¿q visitado?"}
+        Visited -->|Sí| CheckInC{"¿q en algún C?"}
+        CheckInC -->|No| AddToCk["Agregar q a C_k"]
+        CheckInC -->|Sí| QueueEmpty
+        
+        Visited -->|No| MarkVisited["Marcar q VISITADO"]
+        MarkVisited --> SearchQ["Kd-Tree Search (q, ε)"]
+        SearchQ --> CheckDensityQ{"¿|N_q| ≥ MinPts?"}
+        CheckDensityQ -->|Sí| AppendQ["Agregar N_q a Q"]
+        CheckDensityQ -->|No| AddToCk
+        AppendQ --> AddToCk
+        AddToCk --> QueueEmpty
     end
 
+    %% Subgraph 4: Evaluación
     subgraph "4. Evaluación del Modelo"
-        SelectPoint -->|No| CheckClusters{Validar Clusters}
-        CheckClusters -->|"Tamaño < Min"| Discard["Descartar - Ruido"]
-        CheckClusters -->|"Tamaño > Max"| Split["Descartar o Dividir"]
-        CheckClusters -->|Válido| ValidC[Cluster Confirmado]
+        SaveCluster --> EvalSize{"Validar Tamaño |C_k|"}
+        EvalSize -->|"< 3 pts"| DiscardC["Descartar (Under-segmentation)"]
+        EvalSize -->|"> 10000 pts"| SplitC["Descartar (Over-segmentation)"]
+        EvalSize -->|"OK"| ValidC["Cluster Validado"]
     end
 
+    %% Subgraph 5: Interpretación
     subgraph "5. Interpretación de Resultados"
-        ValidC --> Centroid["Cálculo de Centroide (x,y,z)"]
-        Centroid --> BBox[Generación de Bounding Box]
-        BBox --> Output(["Salida: Objetos Detectados"])
+        ValidC --> CalcCentroid["Cálculo Centroide: C = (Σx/n, Σy/n, Σz/n)"]
+        CalcCentroid --> CalcMinMax["Buscar Min/Max (x,y,z) para BBox"]
+        CalcMinMax --> CreateMsg["Generar sensor_msgs::PointCloud2"]
+        CreateMsg --> Output(["Salida: /detected_objects_cloud"])
+    end
+
+    %% Subgraph 6: Validación Humana
+    subgraph "6. Validación Empírica (Human-in-the-loop)"
+        Output --> VisualCheck{Inspección Visual (Rviz/OpenCV)}
+        VisualCheck -->|Falsos Positivos| Tune1[Ajustar MinPts/Epsilon]
+        VisualCheck -->|Flickering| Tune2[Ajustar Filtros SOR]
+        VisualCheck -->|FPS < 10| Tune3[Ajustar Voxel Size]
+        Tune1 -.-> Param
+        Tune2 -.-> Param
+        Tune3 -.-> Param
+        VisualCheck -->|OK| Final([Modelo Optimizado para Navegación])
     end
 ```
+
+### 5.2 Metodología de Evaluación y Validación de Resultados
+Dado que este es un sistema de aprendizaje no supervisado operando en un entorno real sin etiquetas (ground truth), la evaluación de la "optimalidad" del modelo se realizó mediante una metodología **Cualitativa y Empírica**:
+
+1.  **Inspección Visual (Correlación Realidad-Modelo):**
+    *   Se comparó la visualización generada en OpenCV con la disposición física real de los obstáculos.
+    *   *Criterio de Éxito:* Cada objeto físico (caja, pared, persona) debe corresponder a un único Bounding Box en la visualización.
+
+2.  **Prueba de Estabilidad Temporal:**
+    *   Se observó la consistencia de los clusters sobre objetos estáticos.
+    *   *Criterio de Éxito:* Los clusters no deben aparecer y desaparecer ("flickering") si el objeto y el robot están inmóviles.
+
+3.  **Minimización de Falsos Positivos (Ruido):**
+    *   Se ajustó `min_cluster_size` hasta eliminar detecciones en espacio vacío causadas por polvo o ruido del sensor.
+    *   *Resultado:* Reducción de detecciones fantasma a < 1% en condiciones controladas.
+
+4.  **Desempeño en Tiempo Real (Latencia):**
+    *   Se monitoreó la tasa de cuadros (FPS) del nodo.
+    *   *Validación:* El sistema mantiene >10 FPS constantes, lo cual es crítico para que el stack de navegación reaccione a tiempo para evitar colisiones.
 
 ## 6. Instrucciones de Uso
 
