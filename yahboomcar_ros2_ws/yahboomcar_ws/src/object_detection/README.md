@@ -226,7 +226,7 @@ graph TD
 
     %% Subgraph 6: Validación Humana
     subgraph "6. Validación Empírica (Human-in-the-loop)"
-        Output --> VisualCheck{Inspección Visual (Rviz/OpenCV)}
+        Output --> VisualCheck{"Inspección Visual (Rviz/OpenCV)"}
         VisualCheck -->|Falsos Positivos| Tune1[Ajustar MinPts/Epsilon]
         VisualCheck -->|Flickering| Tune2[Ajustar Filtros SOR]
         VisualCheck -->|FPS < 10| Tune3[Ajustar Voxel Size]
