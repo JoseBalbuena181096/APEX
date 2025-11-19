@@ -174,9 +174,9 @@ graph TD
     end
 
     subgraph "5. Interpretación de Resultados"
-        ValidC --> Centroid[Cálculo de Centroide (x,y,z)]
+        ValidC --> Centroid["Cálculo de Centroide (x,y,z)"]
         Centroid --> BBox[Generación de Bounding Box]
-        BBox --> Output([Salida: Objetos Detectados])
+        BBox --> Output(["Salida: Objetos Detectados"])
     end
 ```
 
