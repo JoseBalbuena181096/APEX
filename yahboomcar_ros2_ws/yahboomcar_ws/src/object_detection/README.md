@@ -237,6 +237,75 @@ graph TD
     end
 ```
 
+### 5.3 Algorithm Pseudocode
+The following pseudocode describes the complete object detection pipeline as implemented in the node.
+
+```text
+Algorithm: Lidar Object Detection and Clustering
+Input: 
+    P_raw: Raw Point Cloud from LaserScan
+    ε (epsilon): Cluster tolerance radius (0.15m)
+    MinPts: Minimum points per cluster (3)
+    V_size: Voxel leaf size (0.02m)
+Output: 
+    O: Set of detected objects {O_1, O_2, ..., O_k}
+
+Procedure DetectObjects(P_raw):
+    // 1. Preprocessing
+    P_voxel ← VoxelGridFilter(P_raw, V_size)
+    P_clean ← StatisticalOutlierRemoval(P_voxel, k=10, std_dev=0.5)
+    
+    // 2. Euclidean Clustering (DBSCAN)
+    KdTree ← BuildKdTree(P_clean)
+    Clusters ← EmptyList()
+    Visited ← CreateBooleanArray(Size(P_clean), False)
+    
+    For each point p_i in P_clean do:
+        If Visited[i] is True then Continue
+        
+        Visited[i] ← True
+        Neighbors_i ← KdTree.RadiusSearch(p_i, ε)
+        
+        If Size(Neighbors_i) < MinPts then
+            Mark p_i as NOISE
+        Else
+            // Start new cluster
+            C_new ← {p_i}
+            Queue Q ← Neighbors_i
+            
+            While Q is not Empty do:
+                q ← Q.Pop()
+                If Visited[q] is False then
+                    Visited[q] ← True
+                    Neighbors_q ← KdTree.RadiusSearch(q, ε)
+                    If Size(Neighbors_q) >= MinPts then
+                        Q.Push(Neighbors_q)
+                    End If
+                End If
+                
+                If q is not in any Cluster then
+                    C_new.Add(q)
+                End If
+            End While
+            
+            Clusters.Add(C_new)
+        End If
+    End For
+    
+    // 3. Post-processing & Evaluation
+    O ← EmptyList()
+    For each Cluster C_k in Clusters do:
+        If Size(C_k) >= MinPts AND Size(C_k) <= MaxPts then
+            Centroid_k ← ComputeCentroid(C_k)
+            BBox_k ← ComputeBoundingBox(C_k)
+            O.Add({Centroid_k, BBox_k})
+        End If
+    End For
+    
+    Return O
+End Procedure
+```
+
 ### 5.2 Metodología de Evaluación y Validación de Resultados
 Dado que este es un sistema de aprendizaje no supervisado operando en un entorno real sin etiquetas (ground truth), la evaluación de la "optimalidad" del modelo se realizó mediante una metodología **Cualitativa y Empírica**:
 
