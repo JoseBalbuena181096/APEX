@@ -140,6 +140,46 @@ graph TD
     PUB -->|/detected_objects_cloud| NAV["Stack de Navegación"]
 ```
 
+#### 5.0.1 System Data Flow Pseudocode
+The following pseudocode represents the high-level architectural flow, mapping directly to the diagram above.
+
+```text
+System: Object Detection Node Architecture
+Components: LiDAR Driver, ROS2 Node, Navigation Stack
+
+Process NodeLifecycle():
+    Initialize ROS2 Node("object_detection_pcl")
+    Params ← LoadParameters(range, clustering, filtering)
+    
+    Subscriber Sub ← Subscribe("/scan", LaserScanCallback)
+    Publisher Pub ← Advertise("/detected_objects_cloud", PointCloud2)
+    
+    Loop (Spin):
+        Wait for Message M on "/scan"
+        Trigger LaserScanCallback(M)
+    End Loop
+End Process
+
+Callback LaserScanCallback(ScanMsg):
+    // 1. Data Acquisition & Conversion (Matches SUB -> CONV)
+    Cloud_Raw ← PolarToCartesian(ScanMsg)
+    
+    // 2. Preprocessing (Matches ROI -> VOXEL -> SOR)
+    Cloud_ROI ← FilterRangeAndAngle(Cloud_Raw, Params.ROI)
+    
+    // 3. Pipeline Execution (Matches Core ML -> Post-Processing)
+    // See Algorithm 5.3 for Voxel, SOR, and DBSCAN details
+    Objects_Detected ← DetectObjects(Cloud_ROI)
+    
+    // 4. Visualization & Output (Matches VIS -> PUB)
+    Image ← DrawVisualization(Objects_Detected)
+    ShowImage(Image)
+    
+    Cloud_Out ← ConvertToROS(Objects_Detected)
+    Pub.Publish(Cloud_Out)
+End Callback
+```
+
 ### 5.1 Detalle del Algoritmo DBSCAN (Euclidean Clustering)
 
 El siguiente diagrama profundiza en la lógica interna del bloque "Core ML", ilustrando cómo el algoritmo procesa cada punto para formar clusters.
