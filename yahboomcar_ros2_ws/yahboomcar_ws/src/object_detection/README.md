@@ -185,3 +185,17 @@ graph TD
     ```bash
     ros2 param set /object_detection_pcl min_cluster_size 5
     ```
+
+## 7. Resultados y Demostración
+
+A continuación se muestra el funcionamiento del sistema en un entorno real.
+
+### Visualización del Sistema
+![Vista del Sistema de Detección](result_preview.png)
+
+### Video de Demostración
+Haga clic en la imagen o en el enlace para ver el video del funcionamiento en tiempo real:
+
+[![Demo Video](https://img.youtube.com/vi/Fgq_LCIFgHU/0.jpg)](https://youtu.be/Fgq_LCIFgHU)
+
+[Ver video en YouTube](https://youtu.be/Fgq_LCIFgHU)
