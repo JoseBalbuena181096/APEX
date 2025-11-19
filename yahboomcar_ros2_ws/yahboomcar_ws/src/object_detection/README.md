@@ -168,8 +168,8 @@ graph TD
 
     subgraph "4. Evaluación del Modelo"
         SelectPoint -->|No| CheckClusters{Validar Clusters}
-        CheckClusters -->|"Tamaño < Min"| Discard[Descartar (Ruido)]
-        CheckClusters -->|"Tamaño > Max"| Split[Descartar/Dividir]
+        CheckClusters -->|"Tamaño < Min"| Discard["Descartar - Ruido"]
+        CheckClusters -->|"Tamaño > Max"| Split["Descartar o Dividir"]
         CheckClusters -->|Válido| ValidC[Cluster Confirmado]
     end
 
