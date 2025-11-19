@@ -78,6 +78,15 @@ La siguiente tabla relaciona los conceptos teóricos explicados con las variable
 | **Tamaño Máximo** | `max_cluster_size_` | `10000` (puntos) | Evita que el algoritmo agrupe todo el entorno (e.g., paredes largas) como un único objeto inmanejable. |
 | **Región de Interés (ROI)** | `range_min_`, `range_max_` | `0.1`m - `16.0`m | Filtra puntos demasiado cercanos (ruido del propio chasis) o demasiado lejanos (fuera de relevancia para navegación local). |
 
+### 3.1 Ajuste de Hiperparámetros (Tuning)
+Los valores configurados en el código no son arbitrarios; son el resultado de un proceso de **sintonización empírica (manual tuning)** realizado mediante pruebas iterativas con el robot real.
+
+*   **Cluster Tolerance (0.15m):** Se ajustó para equilibrar la segmentación. Un valor menor fragmentaba objetos grandes (paredes) en múltiples clusters, mientras que un valor mayor fusionaba objetos distintos (dos sillas cercanas).
+*   **Min Cluster Size (3 pts):** Se determinó experimentalmente para filtrar el ruido de "salt & pepper" típico del sensor Slamtec C1 sin perder objetos pequeños pero legítimos.
+*   **Voxel Leaf Size (0.02m):** Optimizado para mantener la forma geométrica de los objetos reduciendo la carga de CPU al mínimo necesario para operar a 10+ FPS.
+
+Estos parámetros representan la configuración óptima encontrada para el entorno de operación del Yahboomcar.
+
 ---
 
 ## 4. Análisis Comparativo: ¿Por qué no K-Means?
@@ -137,37 +146,38 @@ El siguiente diagrama profundiza en la lógica interna del bloque "Core ML", ilu
 
 ```mermaid
 graph TD
-    Start([Inicio: Lista de Puntos P]) --> SelectPoint{"¿Quedan puntos\nsin visitar?"}
-    SelectPoint -->|No| End([Fin del Clustering])
-    SelectPoint -->|Sí| Pick[Seleccionar punto p no visitado]
-    Pick --> Mark[Marcar p como visitado]
-    Mark --> Neighbors["Buscar vecinos N en radio ε\nusando Kd-Tree"]
-    
-    Neighbors --> DensityCheck{"¿|N| ≥ MinPts?"}
-    DensityCheck -->|No| Noise[Marcar p como RUIDO]
-    Noise --> SelectPoint
-    
-    DensityCheck -->|Sí| NewCluster[Crear Nuevo Cluster C]
-    NewCluster --> AddP[Agregar p a C]
-    AddP --> Expand[Expandir Cluster C con vecinos N]
-    
-    Expand --> ProcessNeighbor{"¿Quedan vecinos\nen N por procesar?"}
-    ProcessNeighbor -->|No| SaveCluster[Guardar Cluster C]
-    SaveCluster --> SelectPoint
-    
-    ProcessNeighbor -->|Sí| PickN[Tomar vecino q de N]
-    PickN --> VisitedN{"¿q ya visitado?"}
-    VisitedN -->|Sí| InCluster{"¿q en algún cluster?"}
-    InCluster -->|No| AddQ[Agregar q a C]
-    InCluster -->|Sí| ProcessNeighbor
-    
-    VisitedN -->|No| MarkQ[Marcar q visitado]
-    MarkQ --> SearchQ["Buscar vecinos de q (N')"]
-    SearchQ --> DensityQ{"¿|N'| ≥ MinPts?"}
-    DensityQ -->|Sí| Append[Agregar N' a N]
-    DensityQ -->|No| AddQ
-    Append --> AddQ
-    AddQ --> ProcessNeighbor
+    subgraph "1. Adquisición de Datos"
+        Input([Entrada: Nube de Puntos P])
+    end
+
+    subgraph "2. Limpieza y Preprocesamiento"
+        Input --> Voxel[Voxel Grid Downsampling]
+        Voxel --> Outlier[Statistical Outlier Removal]
+        Outlier --> CleanPoints[Puntos Limpios P']
+    end
+
+    subgraph "3. Agrupamiento (Core ML)"
+        CleanPoints --> SelectPoint{"¿Quedan puntos\nsin visitar?"}
+        SelectPoint -->|Sí| Pick[Seleccionar punto p]
+        Pick --> Neighbors["Buscar vecinos N (Radio ε)"]
+        Neighbors --> DensityCheck{"¿Densidad suficiente?\n(|N| ≥ MinPts)"}
+        DensityCheck -->|No| Noise[Marcar como RUIDO]
+        DensityCheck -->|Sí| ExpandCluster[Expandir Cluster C]
+        ExpandCluster --> SelectPoint
+    end
+
+    subgraph "4. Evaluación del Modelo"
+        SelectPoint -->|No| CheckClusters{Validar Clusters}
+        CheckClusters -->|Tamaño < Min| Discard[Descartar (Ruido)]
+        CheckClusters -->|Tamaño > Max| Split[Descartar/Dividir]
+        CheckClusters -->|Válido| ValidC[Cluster Confirmado]
+    end
+
+    subgraph "5. Interpretación de Resultados"
+        ValidC --> Centroid[Cálculo de Centroide (x,y,z)]
+        Centroid --> BBox[Generación de Bounding Box]
+        BBox --> Output([Salida: Objetos Detectados])
+    end
 ```
 
 ## 6. Instrucciones de Uso
