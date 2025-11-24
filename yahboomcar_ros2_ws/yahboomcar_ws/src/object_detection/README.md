@@ -394,3 +394,10 @@ Haga clic en la imagen o en el enlace para ver el video del funcionamiento en ti
 [![Demo Video](https://img.youtube.com/vi/Fgq_LCIFgHU/0.jpg)](https://youtu.be/Fgq_LCIFgHU)
 
 [Ver video en YouTube](https://youtu.be/Fgq_LCIFgHU)
+
+ros2 pkg create \
+  --build-type ament_cmake \
+  --node-name image_subscriber \
+  --dependencies rclcpp rclpy std_msgs sensor_msgs cv_bridge image_transport actionlib_msgs message_generation \
+  lane_detection
+
