@@ -183,7 +183,7 @@ public:
 
         // --- New tunable parameters ---
         this->declare_parameter("max_curvature_radius", 0.0);
-        this->declare_parameter("use_color_filter", 0);
+        this->declare_parameter("use_color_filter", 2);
         this->declare_parameter("sat_max_white", 60);
         this->declare_parameter("recovery_blend_frames", 10);
         this->declare_parameter("max_inertial_frames", 90);
@@ -560,8 +560,21 @@ public:
         morphologyEx(binary, binary, MORPH_OPEN, kernel_open);
         morphologyEx(binary, binary, MORPH_CLOSE, kernel_close);
 
-        // Color filter (Mejora 6): keep only low-saturation (white) pixels
-        if (use_color_filter_) {
+        // Illumination check BEFORE color filter
+        int white_count_raw = cv::countNonZero(binary);
+        float density_raw = (float)white_count_raw / (float)binary.total();
+
+        // Auto color filter: activate only when too much brightness/glare
+        // use_color_filter_: 0=off, 1=always on, 2=auto (default)
+        bool apply_filter = false;
+        if (use_color_filter_ == 1) {
+            apply_filter = true;
+        } else if (use_color_filter_ == 2) {
+            // Auto: only filter when density > 25% (lots of glare)
+            apply_filter = (density_raw > 0.25f);
+        }
+
+        if (apply_filter) {
             Mat white_mask;
             inRange(birdeye_S_channel_, 0, sat_max_white_, white_mask);
             binary = binary & white_mask;
