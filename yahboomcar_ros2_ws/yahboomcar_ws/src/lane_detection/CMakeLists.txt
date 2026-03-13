@@ -16,6 +16,7 @@ find_package(image_transport REQUIRED)
 find_package(actionlib_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(OpenCV 4.10 REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 message(STATUS "OpenCV version: ${OpenCV_VERSION}")
 
@@ -36,7 +37,7 @@ ament_target_dependencies(
   "cv_bridge"
   "image_transport"
   "actionlib_msgs"
-
+  "geometry_msgs"
 )
 
 install(TARGETS image_subscriber

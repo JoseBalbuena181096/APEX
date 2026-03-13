@@ -108,6 +108,35 @@ h1 { color: #58a6ff; font-size: 1.1em; padding: 10px 0 5px; }
       </div>
     </div>
 
+    <div class="section-label">Robustness</div>
+    <div class="param-group">
+      <label>Max Curvature Radius (px) <span class="val" id="v_max_curvature_radius">80.0</span></label>
+      <div class="slider-row">
+        <input type="range" id="max_curvature_radius" min="20" max="200" step="5" value="80"
+               oninput="updateParam(this, 'max_curvature_radius', 'double')">
+        <input type="number" id="n_max_curvature_radius" min="20" max="200" step="5" value="80"
+               onchange="syncParam('max_curvature_radius', this.value, 'double')">
+      </div>
+    </div>
+    <div class="param-group">
+      <label>Color Filter (0=off, 1=on) <span class="val" id="v_use_color_filter">1</span></label>
+      <div class="slider-row">
+        <input type="range" id="use_color_filter" min="0" max="1" step="1" value="1"
+               oninput="updateParam(this, 'use_color_filter', 'int')">
+        <input type="number" id="n_use_color_filter" min="0" max="1" step="1" value="1"
+               onchange="syncParam('use_color_filter', this.value, 'int')">
+      </div>
+    </div>
+    <div class="param-group">
+      <label>Sat Max White <span class="val" id="v_sat_max_white">60</span></label>
+      <div class="slider-row">
+        <input type="range" id="sat_max_white" min="20" max="150" step="5" value="60"
+               oninput="updateParam(this, 'sat_max_white', 'int')">
+        <input type="number" id="n_sat_max_white" min="20" max="150" step="1" value="60"
+               onchange="syncParam('sat_max_white', this.value, 'int')">
+      </div>
+    </div>
+
     <div class="section-label">Regression</div>
     <div class="param-group">
       <label>RANSAC Min Points <span class="val" id="v_ransac_min_points">30</span></label>
@@ -185,6 +214,35 @@ h1 { color: #58a6ff; font-size: 1.1em; padding: 10px 0 5px; }
                oninput="updateParam(this, 'lane_width_px', 'int')">
         <input type="number" id="n_lane_width_px" min="30" max="200" step="5" value="90"
                onchange="syncParam('lane_width_px', this.value, 'int')">
+      </div>
+    </div>
+
+    <div class="section-label">Navigation (No-Lines)</div>
+    <div class="param-group">
+      <label>Recovery Blend Frames <span class="val" id="v_recovery_blend_frames">10</span></label>
+      <div class="slider-row">
+        <input type="range" id="recovery_blend_frames" min="3" max="30" step="1" value="10"
+               oninput="updateParam(this, 'recovery_blend_frames', 'int')">
+        <input type="number" id="n_recovery_blend_frames" min="3" max="30" step="1" value="10"
+               onchange="syncParam('recovery_blend_frames', this.value, 'int')">
+      </div>
+    </div>
+    <div class="param-group">
+      <label>Max Inertial Frames <span class="val" id="v_max_inertial_frames">90</span></label>
+      <div class="slider-row">
+        <input type="range" id="max_inertial_frames" min="15" max="300" step="5" value="90"
+               oninput="updateParam(this, 'max_inertial_frames', 'int')">
+        <input type="number" id="n_max_inertial_frames" min="15" max="300" step="5" value="90"
+               onchange="syncParam('max_inertial_frames', this.value, 'int')">
+      </div>
+    </div>
+    <div class="param-group">
+      <label>Inertial Straighten Rate <span class="val" id="v_inertial_straighten_rate">0.02</span></label>
+      <div class="slider-row">
+        <input type="range" id="inertial_straighten_rate" min="0.005" max="0.1" step="0.005" value="0.02"
+               oninput="updateParam(this, 'inertial_straighten_rate', 'double')">
+        <input type="number" id="n_inertial_straighten_rate" min="0.005" max="0.1" step="0.005" value="0.02"
+               onchange="syncParam('inertial_straighten_rate', this.value, 'double')">
       </div>
     </div>
 
@@ -433,17 +491,12 @@ class MJPEGHandler(BaseHTTPRequestHandler):
 
 
 class WebVideoNode(Node):
-    PARAM_NAMES = [
-        'clahe_clip', 'adaptive_block', 'adaptive_c',
-        'sliding_margin', 'sliding_minpix', 'ransac_min_points', 'smooth_alpha'
-    ]
-
     def __init__(self):
         super().__init__('web_video_server')
         self.subscription = self.create_subscription(
             Image, '/lane_detection/debug_image', self.image_cb, 5)
         self.get_logger().info('Web video server listening on port 8081')
-        # In-memory cache of param values (updated on set_remote_param and load)
+        # In-memory cache of param values
         self._param_cache = {
             'clahe_clip': 3.0, 'adaptive_block': 51, 'adaptive_c': -25,
             'sliding_margin': 60, 'sliding_minpix': 15,
@@ -454,8 +507,15 @@ class WebVideoNode(Node):
             'persp_top_y_pct': 50,
             'persp_bot_left_pct': 5, 'persp_bot_right_pct': 95,
             'persp_bot_y_pct': 100,
+            # New params
+            'max_curvature_radius': 80.0,
+            'use_color_filter': 1,
+            'sat_max_white': 60,
+            'recovery_blend_frames': 10,
+            'max_inertial_frames': 90,
+            'inertial_straighten_rate': 0.02,
         }
-        # Load saved config after 3 seconds (give C++ node time to start)
+        # Load saved config after 3 seconds
         self.create_timer(3.0, self._load_saved_config_once)
         self._config_loaded = False
 
@@ -470,7 +530,11 @@ class WebVideoNode(Node):
             with open(CONFIG_FILE) as f:
                 saved = json.load(f)
             self.get_logger().info(f'Loading saved config from {CONFIG_FILE}')
-            type_map = {'clahe_clip': 'double', 'smooth_alpha': 'double'}
+            type_map = {
+                'clahe_clip': 'double', 'smooth_alpha': 'double',
+                'max_curvature_radius': 'double',
+                'inertial_straighten_rate': 'double',
+            }
             for name, value in saved.items():
                 ptype = type_map.get(name, 'int')
                 ok, msg = self.set_remote_param(name, value, ptype)
@@ -491,20 +555,25 @@ class WebVideoNode(Node):
             self.get_logger().error(f'cv_bridge error: {e}')
 
     def set_remote_param(self, name, value, ptype='int'):
-        """Set a parameter on the line_detection node via ros2 CLI (thread-safe)."""
-        allowed = {'clahe_clip', 'adaptive_block', 'adaptive_c', 'sliding_margin',
-                   'sliding_minpix', 'ransac_min_points', 'ransac_min_inliers',
-                   'poly_search_min', 'nwindows', 'smooth_alpha',
-                   'lane_width_px', 'persp_top_left_pct', 'persp_top_right_pct',
-                   'persp_top_y_pct', 'persp_bot_left_pct', 'persp_bot_right_pct',
-                   'persp_bot_y_pct'}
+        """Set a parameter on the line_detection node via ros2 CLI."""
+        allowed = {
+            'clahe_clip', 'adaptive_block', 'adaptive_c', 'sliding_margin',
+            'sliding_minpix', 'ransac_min_points', 'ransac_min_inliers',
+            'poly_search_min', 'nwindows', 'smooth_alpha',
+            'lane_width_px', 'persp_top_left_pct', 'persp_top_right_pct',
+            'persp_top_y_pct', 'persp_bot_left_pct', 'persp_bot_right_pct',
+            'persp_bot_y_pct',
+            # New params
+            'max_curvature_radius', 'use_color_filter', 'sat_max_white',
+            'recovery_blend_frames', 'max_inertial_frames',
+            'inertial_straighten_rate',
+        }
         if name not in allowed:
             return False, f'Unknown param: {name}'
         try:
             val_str = str(value)
             ros2_bin = shutil.which('ros2') or '/opt/ros/humble/bin/ros2'
             env = os.environ.copy()
-            # Ensure ROS2 bins are in PATH
             if '/opt/ros/humble/bin' not in env.get('PATH', ''):
                 env['PATH'] = '/opt/ros/humble/bin:' + env.get('PATH', '')
             result = subprocess.run(
@@ -514,7 +583,6 @@ class WebVideoNode(Node):
             msg = result.stdout.strip() if ok else result.stderr.strip()
             if ok:
                 self.get_logger().info(f'param OK: {name} = {val_str}')
-                # Update in-memory cache
                 self._param_cache[name] = value
             else:
                 self.get_logger().warn(f'param FAIL: {name} -> {msg}')
@@ -526,7 +594,7 @@ class WebVideoNode(Node):
             return False, str(e)
 
     def get_current_params(self):
-        """Return in-memory param cache (always up to date)."""
+        """Return in-memory param cache."""
         return dict(self._param_cache)
 
 
