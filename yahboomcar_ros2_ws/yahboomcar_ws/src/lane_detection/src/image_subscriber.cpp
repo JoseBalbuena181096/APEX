@@ -575,9 +575,9 @@ public:
     }
 
     // ============================================================
-    // Illumination monitoring (Mejora 1B)
-    // Tracks white pixel density for debug display only.
-    // Does NOT modify adaptive_c_ — keep user-tuned value stable.
+    // Illumination adaptation (Mejora 1B)
+    // Conservative: slow drift (±0.1/frame), wide dead zone (2%-20%),
+    // tight clamp (-35 to -15). Only reacts to extreme lighting.
     // ============================================================
     void update_illumination(int white_pixels, size_t total_pixels) {
         float density = (float)white_pixels / (float)total_pixels;
@@ -586,9 +586,20 @@ public:
             illum_ema_ = density;
             illum_has_history_ = true;
         } else {
-            illum_ema_ = 0.1f * density + 0.9f * illum_ema_;
+            illum_ema_ = 0.05f * density + 0.95f * illum_ema_;
         }
-        // adaptive_c_ stays at user-set value — no drift
+
+        // Only adapt in extreme conditions, slow drift
+        if (illum_ema_ > 0.20f) {
+            // Too bright — make threshold more demanding
+            adaptive_c_base_ = std::max(-35.0f, adaptive_c_base_ - 0.1f);
+        } else if (illum_ema_ < 0.02f) {
+            // Too dark — make threshold more permissive
+            adaptive_c_base_ = std::min(-15.0f, adaptive_c_base_ + 0.1f);
+        }
+        // Between 2%-20%: don't touch — normal range
+
+        adaptive_c_ = (int)adaptive_c_base_;
     }
 
     // ============================================================
