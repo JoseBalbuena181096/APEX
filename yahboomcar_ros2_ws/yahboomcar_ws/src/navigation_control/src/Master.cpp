@@ -63,10 +63,10 @@ private:
 public:
     Master() : Node("master_control") {
         // Main gains
-        this->declare_parameter("kp_cte", 0.5);
-        this->declare_parameter("kp_heading", 0.3);
-        this->declare_parameter("kff", 0.2);
-        this->declare_parameter("max_speed", 0.20);
+        this->declare_parameter("kp_cte", 0.7);
+        this->declare_parameter("kp_heading", 0.5);
+        this->declare_parameter("kff", 0.45);
+        this->declare_parameter("max_speed", 0.30);
 
         // Secondary
         this->declare_parameter("kv_curve", 0.5);

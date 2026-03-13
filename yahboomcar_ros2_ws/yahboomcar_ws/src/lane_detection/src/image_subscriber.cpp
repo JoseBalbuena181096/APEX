@@ -1233,11 +1233,11 @@ public:
         float lane_dx = center_far - center_near;
         float lane_dy = row_far - row_near;
         float lane_angle = atan2f(lane_dx, -lane_dy);
-        float heading_error = std::clamp(lane_angle / 0.7854f, -1.0f, 1.0f);
+        float heading_error = std::clamp(-lane_angle / 0.7854f, -1.0f, 1.0f);
 
-        // Curvature anticipada
+        // Curvature anticipada (negated: positive curvature = turn right)
         float avg_p2 = 0.5f * (dl[2] + dr[2]);
-        float curvature = std::clamp(avg_p2 / 0.003f, -1.0f, 1.0f);
+        float curvature = std::clamp(-avg_p2 / 0.003f, -1.0f, 1.0f);
 
         geometry_msgs::msg::Vector3 ref;
         ref.x = cte;

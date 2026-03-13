@@ -85,33 +85,33 @@ h1 { color: #58a6ff; font-size: 1.3em; padding: 18px 0 10px; }
   <div class="section-label">Steering Gains</div>
 
   <div class="param-group">
-    <label>Kp CTE (lateral correction) <span class="val" id="v_kp_cte">0.50</span></label>
+    <label>Kp CTE (lateral correction) <span class="val" id="v_kp_cte">0.70</span></label>
     <div class="slider-row">
-      <input type="range" id="kp_cte" min="0.0" max="1.5" step="0.05" value="0.50"
+      <input type="range" id="kp_cte" min="0.0" max="1.5" step="0.05" value="0.70"
              oninput="updateParam(this,'kp_cte')">
-      <input type="number" id="n_kp_cte" min="0.0" max="1.5" step="0.01" value="0.50"
+      <input type="number" id="n_kp_cte" min="0.0" max="1.5" step="0.01" value="0.70"
              onchange="syncParam('kp_cte',this.value)">
     </div>
     <div class="hint">No se centra? subir. Zigzaguea? bajar.</div>
   </div>
 
   <div class="param-group">
-    <label>Kp Heading (angular alignment) <span class="val" id="v_kp_heading">0.30</span></label>
+    <label>Kp Heading (angular alignment) <span class="val" id="v_kp_heading">0.50</span></label>
     <div class="slider-row">
-      <input type="range" id="kp_heading" min="0.0" max="1.0" step="0.05" value="0.30"
+      <input type="range" id="kp_heading" min="0.0" max="1.0" step="0.05" value="0.50"
              oninput="updateParam(this,'kp_heading')">
-      <input type="number" id="n_kp_heading" min="0.0" max="1.0" step="0.01" value="0.30"
+      <input type="number" id="n_kp_heading" min="0.0" max="1.0" step="0.01" value="0.50"
              onchange="syncParam('kp_heading',this.value)">
     </div>
     <div class="hint">Reemplaza Kd. Anti-zigzag natural.</div>
   </div>
 
   <div class="param-group">
-    <label>Kff (curvature feedforward) <span class="val" id="v_kff">0.20</span></label>
+    <label>Kff (curvature feedforward) <span class="val" id="v_kff">0.45</span></label>
     <div class="slider-row">
-      <input type="range" id="kff" min="0.0" max="0.8" step="0.05" value="0.20"
+      <input type="range" id="kff" min="0.0" max="0.8" step="0.05" value="0.45"
              oninput="updateParam(this,'kff')">
-      <input type="number" id="n_kff" min="0.0" max="0.8" step="0.01" value="0.20"
+      <input type="number" id="n_kff" min="0.0" max="0.8" step="0.01" value="0.45"
              onchange="syncParam('kff',this.value)">
     </div>
     <div class="hint">Entra tarde a curvas? subir. Gira antes de tiempo? bajar.</div>
@@ -120,11 +120,11 @@ h1 { color: #58a6ff; font-size: 1.3em; padding: 18px 0 10px; }
   <div class="section-label">Speed</div>
 
   <div class="param-group">
-    <label>Max Speed (m/s) <span class="val" id="v_max_speed">0.20</span></label>
+    <label>Max Speed (m/s) <span class="val" id="v_max_speed">0.30</span></label>
     <div class="slider-row">
-      <input type="range" id="max_speed" min="0.05" max="0.5" step="0.01" value="0.20"
+      <input type="range" id="max_speed" min="0.05" max="0.5" step="0.01" value="0.30"
              oninput="updateParam(this,'max_speed')">
-      <input type="number" id="n_max_speed" min="0.05" max="0.5" step="0.01" value="0.20"
+      <input type="number" id="n_max_speed" min="0.05" max="0.5" step="0.01" value="0.30"
              onchange="syncParam('max_speed',this.value)">
     </div>
   </div>
@@ -297,8 +297,8 @@ class ControlTuningNode(Node):
         super().__init__('control_tuning_server')
         self.nav_enabled = False
         self._param_cache = {
-            'kp_cte': 0.50, 'kp_heading': 0.30, 'kff': 0.20,
-            'max_speed': 0.20, 'kv_curve': 0.50, 'max_angular': 0.80,
+            'kp_cte': 0.70, 'kp_heading': 0.50, 'kff': 0.45,
+            'max_speed': 0.30, 'kv_curve': 0.50, 'max_angular': 0.80,
         }
         if os.path.exists(CONFIG_FILE):
             try:
